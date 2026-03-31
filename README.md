@@ -1,80 +1,22 @@
-# creem-datafast
+# @0xentropy/creem-datafast
 
-> Connect CREEM payments to DataFast analytics automatically. Zero glue code.
+Wraps the [CREEM](https://creem.io) SDK to automatically attribute revenue to DataFast visitor sessions — no glue code.
 
-**creem-datafast** is a TypeScript package that wraps the [CREEM](https://creem.io) SDK and automatically captures the DataFast visitor ID on checkout, forwarding payment events to DataFast for revenue attribution.
+**Flow:** DataFast script sets a cookie → your checkout route injects it into CREEM metadata → webhook forwards the conversion to DataFast.
 
-```
-landing page (DataFast tracking) → checkout (visitor ID captured) → webhook (attribution sent)
-```
-
-## How it works
-
-1. DataFast's tracking script sets a `datafast_visitor_id` cookie in the visitor's browser
-2. When your server creates a CREEM checkout, `creem-datafast` reads that cookie and injects it into the checkout metadata
-3. When CREEM fires a `checkout.completed` or `subscription.paid` webhook, the handler reads the visitor ID from metadata and sends a conversion event to DataFast
-
-The merchant only needs to add two API keys — the package handles the rest.
-
-## Quickstart
-
-### Install
+## Install
 
 ```bash
-npm install creem-datafast creem
+npm install @0xentropy/creem-datafast creem
 ```
 
-### Express
+## Next.js
 
-```typescript
-import express from "express";
-import { CreemDataFast } from "creem-datafast";
-import { createExpressWebhookHandler } from "creem-datafast/adapters/express";
-
-const app = express();
-
-const client = new CreemDataFast({
-  creemApiKey: process.env.CREEM_API_KEY!,
-  datafastApiKey: process.env.DATAFAST_API_KEY!,
-  webhookSecret: process.env.CREEM_WEBHOOK_SECRET!,
-});
-
-// Create checkout — reads datafast_visitor_id cookie automatically
-app.post("/api/checkout", async (req, res) => {
-  const { checkoutUrl } = await client.createCheckout(
-    { productId: "prod_xxx", successUrl: "https://myapp.com/success" },
-    { cookies: req.headers.cookie }
-  );
-  res.json({ checkoutUrl });
-});
-
-// Webhook — use raw body middleware before this route
-app.use("/webhooks/creem", express.raw({ type: "application/json" }));
-
-app.post(
-  "/webhooks/creem",
-  createExpressWebhookHandler(
-    {
-      webhookSecret: process.env.CREEM_WEBHOOK_SECRET!,
-      datafastApiKey: process.env.DATAFAST_API_KEY!,
-    },
-    {
-      onCheckoutCompleted: async (object, ctx) => {
-        console.log("New sale!", object.customer.email, "visitor:", ctx.visitorId);
-        // Provision user access here
-      },
-    }
-  )
-);
-```
-
-### Next.js (App Router)
-
-**1. Checkout API route** — `app/api/checkout/route.ts`
+`app/api/checkout/route.ts`
 
 ```typescript
 import { NextRequest, NextResponse } from "next/server";
-import { CreemDataFast } from "creem-datafast";
+import { CreemDataFast } from "@0xentropy/creem-datafast";
 
 const client = new CreemDataFast({
   creemApiKey: process.env.CREEM_API_KEY!,
@@ -92,10 +34,10 @@ export async function POST(req: NextRequest) {
 }
 ```
 
-**2. Webhook handler** — `app/api/webhooks/creem/route.ts`
+`app/api/webhooks/creem/route.ts`
 
 ```typescript
-import { createNextJsWebhookHandler } from "creem-datafast/adapters/nextjs";
+import { createNextJsWebhookHandler } from "@0xentropy/creem-datafast/adapters/nextjs";
 
 export const POST = createNextJsWebhookHandler(
   {
@@ -104,17 +46,15 @@ export const POST = createNextJsWebhookHandler(
   },
   {
     onCheckoutCompleted: async (object, ctx) => {
-      // DataFast attribution is already tracked at this point
-      console.log("New purchase!", object.customer.email, "via", ctx.visitorId);
+      // attribution already tracked — provision access here
     },
   }
 );
 ```
 
-**3. Landing page** — add the DataFast tracking script to your layout:
+`app/layout.tsx` — add the DataFast tracking script:
 
 ```tsx
-// app/layout.tsx
 <script
   defer
   data-website-id={process.env.NEXT_PUBLIC_DATAFAST_SITE_ID}
@@ -123,100 +63,87 @@ export const POST = createNextJsWebhookHandler(
 />
 ```
 
-**4. Register your webhook URL in the CREEM dashboard:**
+Register your webhook URL in the CREEM dashboard: `https://your-domain.com/api/webhooks/creem`
 
-```
-https://your-domain.com/api/webhooks/creem
-```
-
-### Generic handler (any framework)
+## Express
 
 ```typescript
-import { CreemDataFast } from "creem-datafast";
+import { CreemDataFast } from "@0xentropy/creem-datafast";
+import { createExpressWebhookHandler } from "@0xentropy/creem-datafast/adapters/express";
 
-const client = new CreemDataFast({ ... });
+const client = new CreemDataFast({
+  creemApiKey: process.env.CREEM_API_KEY!,
+  datafastApiKey: process.env.DATAFAST_API_KEY!,
+  webhookSecret: process.env.CREEM_WEBHOOK_SECRET!,
+  appUrl: process.env.APP_URL,
+});
 
-// In your request handler:
-const rawBody = await req.text();
-const signature = req.headers.get("creem-signature") ?? "";
+app.post("/api/checkout", async (req, res) => {
+  const { checkoutUrl } = await client.createCheckout(
+    { productId: "prod_xxx" },
+    { cookies: req.headers.cookie }
+  );
+  res.json({ checkoutUrl });
+});
 
+// Raw body required before this route
+app.use("/webhooks/creem", express.raw({ type: "application/json" }));
+app.post("/webhooks/creem", createExpressWebhookHandler(
+  { webhookSecret: process.env.CREEM_WEBHOOK_SECRET!, datafastApiKey: process.env.DATAFAST_API_KEY! },
+  { onCheckoutCompleted: async (object, ctx) => { /* ... */ } }
+));
+```
+
+## Other frameworks
+
+```typescript
 const { ok, error } = await client.handleWebhook(rawBody, signature, {
   onCheckoutCompleted: async (object, ctx) => { /* ... */ },
 });
 ```
 
-### Client-side helper
+## Visitor ID via query param
+
+If cookies aren't available, pass the visitor ID via URL instead:
 
 ```typescript
-import { getDataFastVisitorId, appendVisitorIdToCheckoutUrl } from "creem-datafast/browser";
+// Browser
+import { appendVisitorIdToCheckoutUrl } from "@0xentropy/creem-datafast/browser";
+window.location.href = appendVisitorIdToCheckoutUrl(checkoutUrl);
 
-// Option A: Pass visitor ID to your checkout API (if you prefer URL params over cookies)
-const checkoutUrl = appendVisitorIdToCheckoutUrl(serverGeneratedUrl);
-window.location.href = checkoutUrl;
-
-// Option B: Read it directly
-const visitorId = getDataFastVisitorId(); // reads datafast_visitor_id cookie
+// Server — reads ?datafast_visitor_id=... as fallback
+await client.createCheckout(params, { searchParams: req.nextUrl.searchParams });
 ```
-
-## Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `CREEM_API_KEY` | CREEM API key (test: `creem_test_…`, live: `creem_…`) |
-| `CREEM_WEBHOOK_SECRET` | Webhook signing secret from CREEM dashboard |
-| `DATAFAST_API_KEY` | DataFast API key |
-| `CREEM_PRODUCT_ID` | Product ID to sell |
-| `NEXT_PUBLIC_APP_URL` | Your app's public URL (for success redirect) |
 
 ## Configuration
 
-```typescript
-new CreemDataFast({
-  creemApiKey: string;       // Required: CREEM API key
-  datafastApiKey: string;    // Required: DataFast API key
-  webhookSecret: string;     // Required: CREEM webhook secret
-  datafastApiUrl?: string;   // Optional: override DataFast base URL
-  testMode?: boolean;        // Optional: use CREEM test environment (default: false)
-})
-```
+| Option | Required | Description |
+|--------|----------|-------------|
+| `creemApiKey` | ✓ | CREEM API key (`creem_test_…` or `creem_…`) |
+| `datafastApiKey` | ✓ | DataFast API key |
+| `webhookSecret` | ✓ | Webhook signing secret from CREEM dashboard |
+| `appUrl` | | Base URL — sets default success redirect to `${appUrl}/success` |
+| `testMode` | | Use CREEM sandbox (default: `false`) |
+| `datafastApiUrl` | | Override DataFast base URL |
+| `logger` | | Custom logger `{ warn }` (default: `console.warn`) |
 
-## Webhook Events
+## Webhook events
 
-| CREEM Event | DataFast event_type | Notes |
-|-------------|--------------------|----|
-| `checkout.completed` | `purchase` | One-time and first subscription payment |
-| `subscription.paid` | `subscription_renewal` | Recurring billing cycle |
+| CREEM event | DataFast `event_type` |
+|-------------|----------------------|
+| `checkout.completed` | `purchase` |
+| `subscription.active` | `subscription_start` |
+| `subscription.paid` | `subscription_renewal` |
+| `subscription.trialing` | _(no conversion — no revenue yet)_ |
 
-Attribution is only tracked when `datafast_visitor_id` is present in the checkout metadata. If missing, the webhook handler still runs but skips the DataFast call.
+Attribution is skipped silently when `datafast_visitor_id` is absent from checkout metadata.
 
-## DataFast Attribution Payload
-
-```typescript
-{
-  visitor_id: string;          // from checkout metadata
-  transaction_id: string;      // CREEM order ID
-  amount: number;              // in cents (e.g. 1999 = $19.99)
-  currency: string;            // e.g. "USD"
-  event_type: "purchase" | "subscription_renewal";
-  product_name?: string;
-  subscription_id?: string;
-}
-```
-
-## Example App
-
-See [`/example`](./example) for a complete Next.js application demonstrating:
-
-- Landing page with subscribe button
-- Checkout API route that captures DataFast visitor ID
-- Webhook handler that tracks attribution
-- Success page
+## Example app
 
 ```bash
 cd example
-cp .env.example .env.local   # fill in your keys
-npm install
-npm run dev
+cp .env.example .env.local
+npm install && npm run dev
 ```
 
 ## License
