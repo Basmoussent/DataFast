@@ -15,6 +15,12 @@ export interface CreemDataFastConfig {
    */
   datafastApiUrl?: string;
   /**
+   * Your app's public URL. Used to build the default success redirect:
+   * `${appUrl}/success`. If omitted, `successUrl` must be passed explicitly
+   * to `createCheckout()`.
+   */
+  appUrl?: string;
+  /**
    * Use CREEM test environment.
    * @default false
    */

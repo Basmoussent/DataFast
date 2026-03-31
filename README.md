@@ -80,11 +80,12 @@ const client = new CreemDataFast({
   creemApiKey: process.env.CREEM_API_KEY!,
   datafastApiKey: process.env.DATAFAST_API_KEY!,
   webhookSecret: process.env.CREEM_WEBHOOK_SECRET!,
+  appUrl: process.env.NEXT_PUBLIC_APP_URL, // success redirect → ${appUrl}/success
 });
 
 export async function POST(req: NextRequest) {
   const { checkoutUrl } = await client.createCheckout(
-    { productId: process.env.CREEM_PRODUCT_ID!, successUrl: `${process.env.NEXT_PUBLIC_APP_URL}/success` },
+    { productId: process.env.CREEM_PRODUCT_ID! },
     { cookies: req.headers.get("cookie") ?? undefined }
   );
   return NextResponse.json({ checkoutUrl });
@@ -114,7 +115,12 @@ export const POST = createNextJsWebhookHandler(
 
 ```tsx
 // app/layout.tsx
-<script defer data-site="YOUR_SITE_ID" src="https://cdn.datafast.io/tracker.js" />
+<script
+  defer
+  data-website-id={process.env.NEXT_PUBLIC_DATAFAST_SITE_ID}
+  data-domain={process.env.NEXT_PUBLIC_DATAFAST_DOMAIN}
+  src="https://datafa.st/js/script.js"
+/>
 ```
 
 **4. Register your webhook URL in the CREEM dashboard:**

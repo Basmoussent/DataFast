@@ -21,7 +21,6 @@ export default function RootLayout({
           defer
           data-website-id={process.env.NEXT_PUBLIC_DATAFAST_SITE_ID}
           data-domain={process.env.NEXT_PUBLIC_DATAFAST_DOMAIN}
-          data-allow-localhost="true"
           src="https://datafa.st/js/script.js"
         />
       </head>

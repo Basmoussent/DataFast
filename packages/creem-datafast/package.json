@@ -1,14 +1,19 @@
 {
-  "name": "creem-datafast",
+  "name": "@0xentropy/creem-datafast",
   "version": "1.0.0",
   "description": "Revenue attribution plugin connecting CREEM payments to DataFast analytics",
   "license": "MIT",
-  "author": "creem-datafast contributors",
-  "homepage": "https://github.com/creem-datafast/creem-datafast#readme",
+  "author": "0xBasmoussent",
+  "homepage": "https://github.com/0xBasmoussent/DataFast#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/creem-datafast/creem-datafast.git"
+    "url": "https://github.com/0xBasmoussent/DataFast.git"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "keywords": [
     "creem",
     "datafast",
@@ -59,9 +64,10 @@
     "creem": "^1.4.4",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0",
-    "vitest": "^1.6.0"
+    "vitest": "^4.1.2"
   },
   "dependencies": {
+    "next": "16.2.1",
     "zod": "^3.25.76"
   }
 }

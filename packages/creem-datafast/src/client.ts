@@ -33,8 +33,13 @@ export class CreemDataFast {
 
   private readonly datafast: DataFastClient;
   private readonly webhookProcessor: WebhookProcessor;
+  private readonly defaultSuccessUrl: string | undefined;
 
   constructor(config: CreemDataFastConfig) {
+    this.defaultSuccessUrl = config.appUrl
+      ? `${config.appUrl.replace(/\/$/, "")}/success`
+      : undefined;
+
     this.creem = new Creem({
       apiKey: config.creemApiKey,
       serverIdx: config.testMode === true ? 1 : 0,
@@ -72,6 +77,7 @@ export class CreemDataFast {
     }
 
     const checkout = await this.creem.checkouts.create({
+      successUrl: this.defaultSuccessUrl,
       ...params,
       metadata,
     });
