@@ -1,0 +1,20 @@
+{
+  "name": "creem-datafast-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "example"
+  ],
+  "scripts": {
+    "build": "pnpm --filter creem-datafast build",
+    "dev:example": "pnpm --filter example dev",
+    "test": "pnpm --filter creem-datafast test",
+    "lint": "pnpm --filter creem-datafast lint"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

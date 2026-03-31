@@ -1,0 +1,67 @@
+{
+  "name": "creem-datafast",
+  "version": "1.0.0",
+  "description": "Revenue attribution plugin connecting CREEM payments to DataFast analytics",
+  "license": "MIT",
+  "author": "creem-datafast contributors",
+  "homepage": "https://github.com/creem-datafast/creem-datafast#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/creem-datafast/creem-datafast.git"
+  },
+  "keywords": [
+    "creem",
+    "datafast",
+    "revenue-attribution",
+    "analytics",
+    "payments",
+    "webhooks"
+  ],
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "import": "./dist/browser.mjs",
+      "require": "./dist/browser.js"
+    },
+    "./adapters/express": {
+      "types": "./dist/adapters/express.d.ts",
+      "import": "./dist/adapters/express.mjs",
+      "require": "./dist/adapters/express.js"
+    },
+    "./adapters/nextjs": {
+      "types": "./dist/adapters/nextjs.d.ts",
+      "import": "./dist/adapters/nextjs.mjs",
+      "require": "./dist/adapters/nextjs.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "peerDependencies": {
+    "creem": ">=1.4.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^20.0.0",
+    "creem": "^1.4.4",
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
+  },
+  "dependencies": {
+    "zod": "^3.25.76"
+  }
+}
