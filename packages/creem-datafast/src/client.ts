@@ -67,9 +67,15 @@ export class CreemDataFast {
    */
   async createCheckout(
     params: CreateCheckoutParams,
-    options: { cookies?: string | Record<string, string> } = {}
+    options: {
+      cookies?: string | Record<string, string>;
+      /** URL query parameters — used as fallback when the visitor ID is not in cookies */
+      searchParams?: string | URLSearchParams | Record<string, string>;
+    } = {}
   ): Promise<CheckoutResult> {
-    const visitorId = readVisitorIdFromCookies(options.cookies);
+    const visitorId =
+      readVisitorIdFromCookies(options.cookies) ??
+      readVisitorIdFromSearchParams(options.searchParams);
 
     const metadata: Record<string, unknown> = { ...params.metadata };
     if (visitorId) {
@@ -137,4 +143,27 @@ function readVisitorIdFromCookies(
   }
 
   return undefined;
+}
+
+/**
+ * Reads `datafast_visitor_id` from URL search params.
+ * Accepts a raw query string (`?foo=bar`), a `URLSearchParams` object,
+ * or a plain key/value map.
+ */
+function readVisitorIdFromSearchParams(
+  searchParams: string | URLSearchParams | Record<string, string> | undefined
+): string | undefined {
+  if (!searchParams) return undefined;
+
+  let val: string | null | undefined;
+
+  if (typeof searchParams === "string") {
+    val = new URLSearchParams(searchParams).get(DATAFAST_COOKIE_NAME);
+  } else if (searchParams instanceof URLSearchParams) {
+    val = searchParams.get(DATAFAST_COOKIE_NAME);
+  } else {
+    val = searchParams[DATAFAST_COOKIE_NAME];
+  }
+
+  return typeof val === "string" && val.length > 0 ? val : undefined;
 }

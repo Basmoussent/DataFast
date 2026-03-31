@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createHmac } from "node:crypto";
-import { WebhookProcessor } from "../webhook.js";
+import { WebhookProcessor, normalizeAmount } from "../webhook.js";
 import type { DataFastClient } from "../datafast.js";
 import type { CreemCheckoutCompletedObject, CreemSubscriptionObject } from "../types.js";
 
@@ -18,6 +18,31 @@ function makeDataFastClient(
     ...override,
   } as unknown as DataFastClient;
 }
+
+describe("normalizeAmount", () => {
+  it("divides by 100 for standard currencies", () => {
+    expect(normalizeAmount(1999, "USD")).toBe(19.99);
+    expect(normalizeAmount(1999, "EUR")).toBe(19.99);
+    expect(normalizeAmount(1999, "GBP")).toBe(19.99);
+  });
+
+  it("does not divide for zero-decimal currencies", () => {
+    expect(normalizeAmount(1500, "JPY")).toBe(1500);
+    expect(normalizeAmount(5000, "KRW")).toBe(5000);
+    expect(normalizeAmount(2000, "VND")).toBe(2000);
+  });
+
+  it("divides by 1000 for three-decimal currencies", () => {
+    expect(normalizeAmount(1500, "KWD")).toBe(1.5);
+    expect(normalizeAmount(2000, "OMR")).toBe(2);
+    expect(normalizeAmount(1999, "BHD")).toBe(1.999);
+  });
+
+  it("is case-insensitive", () => {
+    expect(normalizeAmount(1500, "jpy")).toBe(1500);
+    expect(normalizeAmount(1999, "usd")).toBe(19.99);
+  });
+});
 
 describe("WebhookProcessor", () => {
   describe("verifySignature", () => {
@@ -71,7 +96,7 @@ describe("WebhookProcessor", () => {
         expect.objectContaining({
           visitor_id: "df_visitor_abc",
           transaction_id: "ord_123",
-          amount: 1999,
+          amount: 19.99,
           currency: "USD",
           event_type: "purchase",
           product_name: "Pro Plan",
@@ -92,6 +117,28 @@ describe("WebhookProcessor", () => {
       expect(obj.customer.email).toBe("alice@example.com");
       expect(ctx.conversionTracked).toBe(true);
       expect(ctx.visitorId).toBe("df_visitor_abc");
+    });
+
+    it("normalizes amount for zero-decimal currencies (JPY)", async () => {
+      const datafastClient = makeDataFastClient();
+      const processor = new WebhookProcessor(SECRET, datafastClient);
+
+      const jpyEvent = {
+        id: "evt_jpy",
+        eventType: "checkout.completed" as const,
+        created_at: Date.now(),
+        object: {
+          ...checkoutObject,
+          order: { id: "ord_jpy", total_amount: 1500, currency: "JPY", status: "paid" },
+        },
+      };
+
+      const body = JSON.stringify(jpyEvent);
+      await processor.process(body, sign(body));
+
+      expect(datafastClient.trackConversion).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: 1500, currency: "JPY" })
+      );
     });
 
     it("does not track conversion when visitor ID is missing", async () => {

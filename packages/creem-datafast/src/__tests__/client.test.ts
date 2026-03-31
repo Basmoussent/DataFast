@@ -6,9 +6,9 @@ import type { CreemDataFastConfig } from "../types.js";
 const mockCheckoutsCreate = vi.fn();
 
 vi.mock("creem", () => ({
-  Creem: vi.fn().mockImplementation(() => ({
-    checkouts: { create: mockCheckoutsCreate },
-  })),
+  Creem: vi.fn().mockImplementation(function () {
+    return { checkouts: { create: mockCheckoutsCreate } };
+  }),
 }));
 
 const defaultCheckoutResponse = {
@@ -103,6 +103,46 @@ describe("CreemDataFast", () => {
       };
       expect(callArg.metadata?.["userId"]).toBe("user_999");
       expect(callArg.metadata?.["datafast_visitor_id"]).toBe("df_zzz");
+    });
+
+    it("reads visitor ID from raw query string when cookie is absent", async () => {
+      const client = new CreemDataFast(baseConfig);
+      await client.createCheckout(
+        { productId: "prod_xxx" },
+        { searchParams: "datafast_visitor_id=df_qs123&other=val" }
+      );
+
+      const callArg = mockCheckoutsCreate.mock.calls[0]?.[0] as {
+        metadata?: Record<string, unknown>;
+      };
+      expect(callArg.metadata?.["datafast_visitor_id"]).toBe("df_qs123");
+    });
+
+    it("reads visitor ID from URLSearchParams object", async () => {
+      const client = new CreemDataFast(baseConfig);
+      const sp = new URLSearchParams({ datafast_visitor_id: "df_sp456" });
+      await client.createCheckout({ productId: "prod_xxx" }, { searchParams: sp });
+
+      const callArg = mockCheckoutsCreate.mock.calls[0]?.[0] as {
+        metadata?: Record<string, unknown>;
+      };
+      expect(callArg.metadata?.["datafast_visitor_id"]).toBe("df_sp456");
+    });
+
+    it("prefers cookie over searchParams when both are present", async () => {
+      const client = new CreemDataFast(baseConfig);
+      await client.createCheckout(
+        { productId: "prod_xxx" },
+        {
+          cookies: "datafast_visitor_id=df_cookie",
+          searchParams: "datafast_visitor_id=df_query",
+        }
+      );
+
+      const callArg = mockCheckoutsCreate.mock.calls[0]?.[0] as {
+        metadata?: Record<string, unknown>;
+      };
+      expect(callArg.metadata?.["datafast_visitor_id"]).toBe("df_cookie");
     });
 
     it("throws when CREEM returns a checkout without checkoutUrl", async () => {

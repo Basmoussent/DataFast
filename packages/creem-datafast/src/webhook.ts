@@ -151,7 +151,7 @@ export class WebhookProcessor {
       const payload: DataFastConversionPayload = {
         visitor_id: visitorId,
         transaction_id: object.order.id,
-        amount: object.order.total_amount,
+        amount: normalizeAmount(object.order.total_amount, object.order.currency),
         currency: object.order.currency,
         event_type: "purchase",
         ...(object.product.name !== undefined && { product_name: object.product.name }),
@@ -178,7 +178,7 @@ export class WebhookProcessor {
       const payload: DataFastConversionPayload = {
         visitor_id: visitorId,
         transaction_id: object.last_transaction.id,
-        amount: object.last_transaction.total_amount,
+        amount: normalizeAmount(object.last_transaction.total_amount, object.last_transaction.currency),
         currency: object.last_transaction.currency,
         event_type: "subscription_renewal",
         product_name: object.product.name,
@@ -205,7 +205,7 @@ export class WebhookProcessor {
       const payload: DataFastConversionPayload = {
         visitor_id: visitorId,
         transaction_id: object.last_transaction.id,
-        amount: object.last_transaction.total_amount,
+        amount: normalizeAmount(object.last_transaction.total_amount, object.last_transaction.currency),
         currency: object.last_transaction.currency,
         event_type: "subscription_start",
         product_name: object.product.name,
@@ -242,4 +242,30 @@ function extractVisitorId(
 ): string | undefined {
   const val = metadata?.[DATAFAST_METADATA_KEY];
   return typeof val === "string" && val.length > 0 ? val : undefined;
+}
+
+// Zero-decimal currencies — amount is already the full unit (e.g. JPY 1500 = ¥1500)
+const ZERO_DECIMAL_CURRENCIES = new Set([
+  "BIF", "CLP", "DJF", "GNF", "JPY", "KMF", "KRW", "MGA",
+  "PYG", "RWF", "UGX", "VND", "VUV", "XAF", "XOF", "XPF",
+]);
+
+// Three-decimal currencies — divide by 1000 (e.g. KWD 1500 = 1.500 KD)
+const THREE_DECIMAL_CURRENCIES = new Set([
+  "BHD", "IQD", "JOD", "KWD", "LYD", "OMR", "TND",
+]);
+
+/**
+ * Converts a CREEM amount (always in the currency's smallest unit) to
+ * the standard decimal representation expected by DataFast.
+ *
+ * USD/EUR/GBP/…: cents → divide by 100  (1999 → 19.99)
+ * JPY/KRW/…:     already full units      (1500 → 1500)
+ * KWD/OMR/…:     fils → divide by 1000  (1500 → 1.500)
+ */
+export function normalizeAmount(amount: number, currency: string): number {
+  const upper = currency.toUpperCase();
+  if (ZERO_DECIMAL_CURRENCIES.has(upper)) return amount;
+  if (THREE_DECIMAL_CURRENCIES.has(upper)) return Math.round(amount) / 1000;
+  return Math.round(amount) / 100;
 }
