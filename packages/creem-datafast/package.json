@@ -4,10 +4,10 @@
   "description": "Revenue attribution plugin connecting CREEM payments to DataFast analytics",
   "license": "MIT",
   "author": "0xBasmoussent",
-  "homepage": "https://github.com/0xBasmoussent/DataFast#readme",
+  "homepage": "https://github.com/Basmoussent/DataFast#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/0xBasmoussent/DataFast.git"
+    "url": "https://github.com/Basmoussent/DataFast.git"
   },
   "files": [
     "dist",
